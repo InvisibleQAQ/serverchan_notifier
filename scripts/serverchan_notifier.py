@@ -20,6 +20,8 @@ SENDKEY_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,128}$")
 ENV_KEY = "SERVERCHAN_SENDKEY"
 DEFAULT_ENV_PATH = Path.home() / ".codex" / "serverchan-notifier.env"
 SERVERCHAN_ENDPOINT = "https://sctapi.ftqq.com/{sendkey}.send"
+DEFAULT_REQUEST_TIMEOUT = 10.0
+SESSION_END_REQUEST_TIMEOUT = 2.0
 
 
 class NotificationError(RuntimeError):
@@ -107,10 +109,13 @@ def build_notification(payload: dict[str, Any]) -> tuple[str, str]:
             f"- 工作目录: `{markdown_value(cwd)}`",
             f"- 操作类型: `{markdown_value(tool)}`",
         ]
-    elif event == "Stop":
-        action = "输出完成"
+    elif event in {"Stop", "SessionEnd"}:
+        action, heading = {
+            "Stop": ("输出完成", "Codex 输出完成"),
+            "SessionEnd": ("会话结束", "Codex 会话结束"),
+        }[event]
         details = [
-            "## Codex 输出完成",
+            f"## {heading}",
             "",
             f"- 项目: `{markdown_value(project)}`",
             f"- 工作目录: `{markdown_value(cwd)}`",
@@ -127,6 +132,7 @@ def send_notification(
     title: str,
     desp: str,
     *,
+    timeout: float = DEFAULT_REQUEST_TIMEOUT,
     open_url: Callable[..., Any] = urlopen,
 ) -> None:
     query = urlencode({"title": title, "desp": desp})
@@ -138,7 +144,7 @@ def send_notification(
     )
 
     try:
-        with open_url(request, timeout=10) as response:
+        with open_url(request, timeout=timeout) as response:
             status = getattr(response, "status", 200)
             body = response.read(64 * 1024)
     except OSError as exc:
@@ -190,7 +196,12 @@ def main() -> int:
     try:
         payload = read_hook_payload()
         title, desp = build_notification(payload)
-        send_notification(load_sendkey(), title, desp)
+        timeout = (
+            SESSION_END_REQUEST_TIMEOUT
+            if payload.get("hook_event_name") == "SessionEnd"
+            else DEFAULT_REQUEST_TIMEOUT
+        )
+        send_notification(load_sendkey(), title, desp, timeout=timeout)
     except (NotificationError, OSError, json.JSONDecodeError) as exc:
         log_error(exc)
     return 0

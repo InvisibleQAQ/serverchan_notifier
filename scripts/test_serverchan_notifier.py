@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlparse
 
 
 SCRIPT_PATH = Path(__file__).with_name("serverchan_notifier.py")
+HOOKS_PATH = SCRIPT_PATH.parent.parent / "hooks" / "hooks.json"
 SPEC = importlib.util.spec_from_file_location("serverchan_notifier", SCRIPT_PATH)
 assert SPEC and SPEC.loader
 notifier = importlib.util.module_from_spec(SPEC)
@@ -43,6 +44,29 @@ class ServerChanNotifierTests(unittest.TestCase):
         self.assertEqual(title, ".codex | 输出完成")
         self.assertIn("`.codex`", desp)
         self.assertLessEqual(len(title), 32)
+
+    def test_session_end_title_is_distinct_from_turn_completion(self):
+        title, desp = notifier.build_notification(
+            {"hook_event_name": "SessionEnd", "cwd": r"C:\Users\18368\.codex"}
+        )
+
+        self.assertEqual(title, ".codex | 会话结束")
+        self.assertIn("## Codex 会话结束", desp)
+
+    def test_plugin_declares_only_supported_notification_lifecycle_hooks(self):
+        config = json.loads(HOOKS_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            set(config["hooks"]),
+            {"PermissionRequest", "Stop", "SessionEnd"},
+        )
+        session_end_handler = config["hooks"]["SessionEnd"][0]["hooks"][0]
+        self.assertNotIn("async", session_end_handler)
+        self.assertLessEqual(session_end_handler["timeout"], 3)
+        self.assertLess(
+            notifier.SESSION_END_REQUEST_TIMEOUT,
+            session_end_handler["timeout"],
+        )
 
     def test_approval_title_contains_project_and_operation(self):
         title, _desp = notifier.build_notification(

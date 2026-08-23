@@ -1,7 +1,7 @@
 {
   "name": "serverchan-notifier",
-  "version": "0.1.2",
-  "description": "Send ServerChan notifications when Codex finishes a turn or requests approval.",
+  "version": "0.2.0",
+  "description": "Send ServerChan notifications for Codex turn, approval, and session lifecycle events.",
   "author": {
     "name": "Local developer"
   },
@@ -12,8 +12,8 @@
   ],
   "interface": {
     "displayName": "ServerChan Notifier",
-    "shortDescription": "ServerChan alerts for Codex turns and approvals.",
-    "longDescription": "Sends a ServerChan alert after a Codex turn finishes and when Codex is waiting for tool approval.",
+    "shortDescription": "ServerChan alerts for Codex lifecycle events.",
+    "longDescription": "Sends ServerChan alerts after a Codex turn, before tool approval, and when the main session ends.",
     "developerName": "Local developer",
     "category": "Productivity",
     "capabilities": [
