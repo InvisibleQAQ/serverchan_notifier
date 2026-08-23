@@ -17,8 +17,8 @@ from urllib.request import Request, urlopen
 TITLE_LIMIT = 32
 DESP_BYTE_LIMIT = 32 * 1024
 SENDKEY_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,128}$")
-DEFAULT_CONFIG_PATH = Path.home() / ".codex" / "serverchan-notifier.json"
-CONFIG_PATH_ENV = "SERVERCHAN_NOTIFIER_CONFIG"
+ENV_KEY = "SERVERCHAN_SENDKEY"
+DEFAULT_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 SERVERCHAN_ENDPOINT = "https://sctapi.ftqq.com/{sendkey}.send"
 
 
@@ -26,25 +26,32 @@ class NotificationError(RuntimeError):
     """Raised when notification input or delivery is invalid."""
 
 
-def config_path() -> Path:
-    override = os.environ.get(CONFIG_PATH_ENV)
-    return Path(override).expanduser() if override else DEFAULT_CONFIG_PATH
-
-
 def load_sendkey(path: Path | None = None) -> str:
-    source = path or config_path()
+    source = path or DEFAULT_ENV_PATH
     try:
-        payload = json.loads(source.read_text(encoding="utf-8"))
+        lines = source.read_text(encoding="utf-8").splitlines()
     except FileNotFoundError as exc:
-        raise NotificationError(f"Configuration file not found: {source}") from exc
-    except (OSError, json.JSONDecodeError) as exc:
-        raise NotificationError(f"Cannot read configuration file: {source}") from exc
+        raise NotificationError(f"Environment file not found: {source}") from exc
+    except OSError as exc:
+        raise NotificationError(f"Cannot read environment file: {source}") from exc
 
-    if not isinstance(payload, dict):
-        raise NotificationError("Configuration root must be a JSON object")
-    sendkey = payload.get("sendkey")
-    if not isinstance(sendkey, str) or not SENDKEY_PATTERN.fullmatch(sendkey):
-        raise NotificationError("Configuration field 'sendkey' is invalid")
+    values = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        key, separator, raw_value = stripped.partition("=")
+        if separator and key.strip() == ENV_KEY:
+            value = raw_value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            values.append(value)
+
+    if len(values) != 1:
+        raise NotificationError(f"Environment file must define {ENV_KEY} exactly once")
+    sendkey = values[0]
+    if not SENDKEY_PATTERN.fullmatch(sendkey):
+        raise NotificationError(f"Environment variable {ENV_KEY} is invalid")
     return sendkey
 
 

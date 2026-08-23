@@ -57,13 +57,31 @@ class ServerChanNotifierTests(unittest.TestCase):
         self.assertLessEqual(len(title), 32)
         self.assertTrue(title.endswith(" | 输出完成"))
 
-    def test_load_sendkey_validates_config(self):
+    def test_load_sendkey_validates_env_file(self):
         with TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "config.json"
-            path.write_text(json.dumps({"sendkey": "SCT1234567890"}), encoding="utf-8")
+            path = Path(temp_dir) / ".env"
+            path.write_text(
+                "# ServerChan credentials\nSERVERCHAN_SENDKEY='SCT1234567890'\n",
+                encoding="utf-8",
+            )
             self.assertEqual(notifier.load_sendkey(path), "SCT1234567890")
 
-            path.write_text(json.dumps({"sendkey": "bad/key"}), encoding="utf-8")
+            path.write_text("SERVERCHAN_SENDKEY=bad/key\n", encoding="utf-8")
+            with self.assertRaises(notifier.NotificationError):
+                notifier.load_sendkey(path)
+
+    def test_load_sendkey_rejects_missing_or_duplicate_values(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / ".env"
+            path.write_text("OTHER_VALUE=ignored\n", encoding="utf-8")
+            with self.assertRaises(notifier.NotificationError):
+                notifier.load_sendkey(path)
+
+            path.write_text(
+                "SERVERCHAN_SENDKEY=SCT1234567890\n"
+                "SERVERCHAN_SENDKEY=SCT0987654321\n",
+                encoding="utf-8",
+            )
             with self.assertRaises(notifier.NotificationError):
                 notifier.load_sendkey(path)
 

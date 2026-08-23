@@ -5,15 +5,14 @@ Codex 插件：主线程本轮输出完成时发送 `Stop` 通知；Codex 请求
 
 ## 配置
 
-默认从 `%USERPROFILE%\.codex\serverchan-notifier.json` 读取：
+复制插件根目录的 `.env.example` 为 `.env`，填入 ServerChan SendKey：
 
-```json
-{
-  "sendkey": "YOUR_SERVERCHAN_SENDKEY"
-}
+```dotenv
+SERVERCHAN_SENDKEY=YOUR_SERVERCHAN_SENDKEY
 ```
 
-可用环境变量 `SERVERCHAN_NOTIFIER_CONFIG` 指向其他配置文件。配置文件含密钥，禁止提交到 Git。
+插件只读取自身根目录的 `.env`，不读取当前工作目录或用户级配置。`.env` 含密钥且已被
+Git 忽略；升级或重装插件可能替换插件目录，届时需要重新配置。
 
 ## 行为
 
