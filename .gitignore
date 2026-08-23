@@ -1,5 +1,10 @@
 __pycache__/
 *.py[cod]
 .env
-serverchan-notifier.json
 serverchan-notifier.log
+
+.agents/
+.claude/
+.codex/
+.cursor/
+.trellis/
