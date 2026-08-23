@@ -1,6 +1,6 @@
 {
   "name": "serverchan-notifier",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Send ServerChan notifications when Codex finishes a turn or requests approval.",
   "author": {
     "name": "Local developer"
