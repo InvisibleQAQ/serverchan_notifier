@@ -24,6 +24,8 @@ SERVERCHAN_SENDKEY=YOUR_SERVERCHAN_SENDKEY
 - `Stop`：标题示例 `.codex | 输出完成`。
 - `PermissionRequest`：标题示例 `.codex | 等待确认:命令`。
 - `SessionEnd`：标题示例 `.codex | 会话结束`。它表示会话关闭，不表示单轮输出完成。
+- Windows Hook 使用 PowerShell 的 `$env:PLUGIN_ROOT` 定位插件缓存中的通知脚本，避免
+  将 CMD 语法 `%PLUGIN_ROOT%` 当成字面目录。
 - 请求采用 GET，`title` 与 `desp` 使用 URL 编码。
 - `Stop` 与 `PermissionRequest` 异步执行；`SessionEnd` 按 Codex 契约同步执行，Hook
   超时为 3 秒，网络请求超时为 2 秒。
@@ -36,7 +38,7 @@ SERVERCHAN_SENDKEY=YOUR_SERVERCHAN_SENDKEY
 ## 启用
 
 从个人 marketplace 安装插件后，启动新会话并运行 `/hooks`，审核并信任插件的三个 Hook。
-Codex 会记录 Hook 定义哈希；脚本或 Hook 配置变化后需要重新审核。
+Codex 会记录 Hook 定义哈希；升级到 `0.2.1` 后 Hook 配置已变化，需要重新审核。
 
 ## 验证
 

@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "python3 \"${PLUGIN_ROOT}/scripts/serverchan_notifier.py\"",
-            "commandWindows": "python \"%PLUGIN_ROOT%\\scripts\\serverchan_notifier.py\"",
+            "commandWindows": "python \"$env:PLUGIN_ROOT\\scripts\\serverchan_notifier.py\"",
             "async": true,
             "timeout": 15
           }
@@ -20,7 +20,7 @@
           {
             "type": "command",
             "command": "python3 \"${PLUGIN_ROOT}/scripts/serverchan_notifier.py\"",
-            "commandWindows": "python \"%PLUGIN_ROOT%\\scripts\\serverchan_notifier.py\"",
+            "commandWindows": "python \"$env:PLUGIN_ROOT\\scripts\\serverchan_notifier.py\"",
             "async": true,
             "timeout": 15
           }
@@ -33,7 +33,7 @@
           {
             "type": "command",
             "command": "python3 \"${PLUGIN_ROOT}/scripts/serverchan_notifier.py\"",
-            "commandWindows": "python \"%PLUGIN_ROOT%\\scripts\\serverchan_notifier.py\"",
+            "commandWindows": "python \"$env:PLUGIN_ROOT\\scripts\\serverchan_notifier.py\"",
             "timeout": 3
           }
         ]

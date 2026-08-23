@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -14,6 +17,10 @@ SPEC = importlib.util.spec_from_file_location("serverchan_notifier", SCRIPT_PATH
 assert SPEC and SPEC.loader
 notifier = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(notifier)
+
+
+def load_hook_config():
+    return json.loads(HOOKS_PATH.read_text(encoding="utf-8"))
 
 
 class FakeResponse:
@@ -54,7 +61,7 @@ class ServerChanNotifierTests(unittest.TestCase):
         self.assertIn("## Codex 会话结束", desp)
 
     def test_plugin_declares_only_supported_notification_lifecycle_hooks(self):
-        config = json.loads(HOOKS_PATH.read_text(encoding="utf-8"))
+        config = load_hook_config()
 
         self.assertEqual(
             set(config["hooks"]),
@@ -67,6 +74,58 @@ class ServerChanNotifierTests(unittest.TestCase):
             notifier.SESSION_END_REQUEST_TIMEOUT,
             session_end_handler["timeout"],
         )
+
+    def test_windows_hook_command_uses_powershell_plugin_root(self):
+        config = load_hook_config()
+        commands = {
+            group["hooks"][0]["commandWindows"]
+            for groups in config["hooks"].values()
+            for group in groups
+        }
+
+        self.assertEqual(len(commands), 1)
+        command = commands.pop()
+        self.assertNotIn("%PLUGIN_ROOT%", command)
+        self.assertIn("$env:PLUGIN_ROOT", command)
+
+    @unittest.skipUnless(os.name == "nt", "Windows shell regression test")
+    def test_windows_hook_command_runs_from_powershell(self):
+        config = load_hook_config()
+        command = config["hooks"]["Stop"][0]["hooks"][0]["commandWindows"]
+        powershell = shutil.which("powershell.exe") or shutil.which("powershell")
+        self.assertIsNotNone(powershell)
+
+        with TemporaryDirectory() as temp_dir:
+            plugin_root = Path(temp_dir) / "plugin root"
+            script_dir = plugin_root / "scripts"
+            script_dir.mkdir(parents=True)
+            marker = plugin_root / "hook-ran.txt"
+            (script_dir / "serverchan_notifier.py").write_text(
+                "import os\n"
+                "from pathlib import Path\n"
+                "Path(os.environ['HOOK_TEST_MARKER']).write_text("
+                "'hook-ran', encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            env = os.environ.copy()
+            env["PLUGIN_ROOT"] = str(plugin_root)
+            env["HOOK_TEST_MARKER"] = str(marker)
+
+            result = subprocess.run(
+                [str(powershell), "-NoProfile", "-Command", command],
+                input="{}",
+                text=True,
+                capture_output=True,
+                cwd=plugin_root,
+                env=env,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(
+                marker.is_file(),
+                f"stdout={result.stdout!r} stderr={result.stderr!r}",
+            )
+            self.assertEqual(marker.read_text(encoding="utf-8"), "hook-ran")
 
     def test_approval_title_contains_project_and_operation(self):
         title, _desp = notifier.build_notification(

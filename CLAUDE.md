@@ -21,5 +21,7 @@ Send privacy-minimal ServerChan reminders for Codex root-turn completion, approv
 - Do not send commands, tool arguments, or assistant output to ServerChan.
 - Keep ServerChan `title` at 32 characters or fewer and `desp` at 32 KiB or fewer.
 - Keep `SessionEnd` synchronous with a hook timeout no greater than 3 seconds.
+- Resolve Windows plugin paths with PowerShell's `$env:PLUGIN_ROOT` syntax and
+  cover the command with a real PowerShell launch test.
 
 Update this file and `README.md` when behavior or file ownership changes.
