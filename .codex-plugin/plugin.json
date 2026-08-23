@@ -1,0 +1,24 @@
+{
+  "name": "serverchan-notifier",
+  "version": "0.1.0",
+  "description": "Send ServerChan notifications when Codex finishes a turn or requests approval.",
+  "author": {
+    "name": "Local developer"
+  },
+  "keywords": [
+    "codex",
+    "notifications",
+    "serverchan"
+  ],
+  "interface": {
+    "displayName": "ServerChan Notifier",
+    "shortDescription": "ServerChan alerts for Codex turns and approvals.",
+    "longDescription": "Sends a ServerChan alert after a Codex turn finishes and when Codex is waiting for tool approval.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": [
+      "Notifications"
+    ],
+    "defaultPrompt": "Show me how ServerChan notifications are configured."
+  }
+}

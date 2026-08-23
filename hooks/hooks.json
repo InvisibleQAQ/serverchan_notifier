@@ -1,0 +1,31 @@
+{
+  "description": "Send non-blocking ServerChan notifications for Codex completion and approval events.",
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/serverchan_notifier.py\"",
+            "commandWindows": "python \"%PLUGIN_ROOT%\\scripts\\serverchan_notifier.py\"",
+            "async": true,
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/serverchan_notifier.py\"",
+            "commandWindows": "python \"%PLUGIN_ROOT%\\scripts\\serverchan_notifier.py\"",
+            "async": true,
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
