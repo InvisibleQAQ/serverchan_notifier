@@ -29,6 +29,12 @@ class FakeResponse:
 
 
 class ServerChanNotifierTests(unittest.TestCase):
+    def test_default_env_path_is_outside_plugin_installation(self):
+        self.assertEqual(
+            notifier.DEFAULT_ENV_PATH,
+            Path.home() / ".codex" / "serverchan-notifier.env",
+        )
+
     def test_completion_title_contains_project_and_action(self):
         title, desp = notifier.build_notification(
             {"hook_event_name": "Stop", "cwd": r"C:\Users\18368\.codex"}
@@ -59,7 +65,7 @@ class ServerChanNotifierTests(unittest.TestCase):
 
     def test_load_sendkey_validates_env_file(self):
         with TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / ".env"
+            path = Path(temp_dir) / "serverchan-notifier.env"
             path.write_text(
                 "# ServerChan credentials\nSERVERCHAN_SENDKEY='SCT1234567890'\n",
                 encoding="utf-8",
@@ -72,7 +78,7 @@ class ServerChanNotifierTests(unittest.TestCase):
 
     def test_load_sendkey_rejects_missing_or_duplicate_values(self):
         with TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / ".env"
+            path = Path(temp_dir) / "serverchan-notifier.env"
             path.write_text("OTHER_VALUE=ignored\n", encoding="utf-8")
             with self.assertRaises(notifier.NotificationError):
                 notifier.load_sendkey(path)

@@ -18,7 +18,7 @@ TITLE_LIMIT = 32
 DESP_BYTE_LIMIT = 32 * 1024
 SENDKEY_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,128}$")
 ENV_KEY = "SERVERCHAN_SENDKEY"
-DEFAULT_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+DEFAULT_ENV_PATH = Path.home() / ".codex" / "serverchan-notifier.env"
 SERVERCHAN_ENDPOINT = "https://sctapi.ftqq.com/{sendkey}.send"
 
 
