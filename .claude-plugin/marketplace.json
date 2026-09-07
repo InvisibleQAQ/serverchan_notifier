@@ -1,0 +1,15 @@
+{
+  "name": "serverchan",
+  "description": "ServerChan lifecycle notifications for Claude Code.",
+  "owner": {
+    "name": "InvisibleQAQ"
+  },
+  "plugins": [
+    {
+      "name": "serverchan-notifier-claude",
+      "description": "Send ServerChan notifications for Claude Code turn, failure, approval, idle, and session lifecycle events.",
+      "category": "productivity",
+      "source": "./"
+    }
+  ]
+}

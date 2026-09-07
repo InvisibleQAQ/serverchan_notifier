@@ -1,0 +1,20 @@
+{
+  "name": "serverchan",
+  "interface": {
+    "displayName": "ServerChan Notifier"
+  },
+  "plugins": [
+    {
+      "name": "serverchan-notifier",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

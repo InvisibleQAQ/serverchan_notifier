@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Send privacy-minimal Codex lifecycle notifications through ServerChan."""
+"""Send privacy-minimal Codex and Claude Code lifecycle notifications through ServerChan."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -15,6 +16,7 @@ from urllib.request import Request, urlopen
 
 
 TITLE_LIMIT = 32
+PROJECT_FLOOR = 8
 DESP_BYTE_LIMIT = 32 * 1024
 SENDKEY_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,128}$")
 ENV_KEY = "SERVERCHAN_SENDKEY"
@@ -22,6 +24,48 @@ DEFAULT_ENV_PATH = Path.home() / ".codex" / "serverchan-notifier.env"
 SERVERCHAN_ENDPOINT = "https://sctapi.ftqq.com/{sendkey}.send"
 DEFAULT_REQUEST_TIMEOUT = 10.0
 SESSION_END_REQUEST_TIMEOUT = 2.0
+
+# Each agent exposes a different lifecycle surface. Codex has no turn-failure event.
+AGENT_LABELS = {"codex": ("Codex", "Codex"), "claude": ("Claude", "Claude Code")}
+AGENT_EVENTS = {
+    "codex": ("PermissionRequest", "Stop", "SessionEnd"),
+    "claude": ("PermissionRequest", "Stop", "StopFailure", "Notification", "SessionEnd"),
+}
+EVENT_ACTIONS = {
+    "PermissionRequest": "等待确认",
+    "Stop": "输出完成",
+    "StopFailure": "运行失败",
+    "Notification": "等待输入",
+    "SessionEnd": "会话结束",
+}
+TOOL_LABELS = {
+    "Bash": "命令",
+    "PowerShell": "命令",
+    "apply_patch": "文件修改",
+    "Edit": "文件修改",
+    "Write": "文件写入",
+    "NotebookEdit": "笔记本修改",
+    "Read": "文件读取",
+    "Agent": "子代理",
+    "Task": "子代理",
+    "WebFetch": "网页抓取",
+    "WebSearch": "联网搜索",
+}
+# StopFailure carries a bounded enum, so the reason is safe to send and short to label.
+ERROR_LABELS = {
+    "authentication_failed": "鉴权失败",
+    "oauth_org_not_allowed": "组织限制",
+    "account_on_hold": "账号冻结",
+    "billing_error": "计费错误",
+    "rate_limit": "触发限流",
+    "overloaded": "服务过载",
+    "invalid_request": "请求无效",
+    "model_not_found": "模型缺失",
+    "server_error": "服务端错误",
+    "max_output_tokens": "输出超长",
+    "unknown": "未知错误",
+}
+IDLE_NOTIFICATION_TYPE = "idle_prompt"
 
 
 class NotificationError(RuntimeError):
@@ -65,21 +109,29 @@ def project_name(cwd: str) -> str:
 def tool_label(tool_name: object) -> str:
     if not isinstance(tool_name, str) or not tool_name:
         return "操作"
-    labels = {
-        "Bash": "命令",
-        "apply_patch": "文件修改",
-        "Agent": "子代理",
-    }
-    return labels.get(tool_name, tool_name.rsplit("__", 1)[-1])
+    return TOOL_LABELS.get(tool_name, tool_name.rsplit("__", 1)[-1])
+
+
+def error_label(error: object) -> str:
+    if not isinstance(error, str) or not error:
+        return ERROR_LABELS["unknown"]
+    return ERROR_LABELS.get(error, error)
+
+
+def ellipsize(value: str, limit: int) -> str:
+    if limit <= 0:
+        return ""
+    if len(value) <= limit:
+        return value
+    return value[: limit - 1] + "…"
 
 
 def fit_title(project: str, action: str) -> str:
+    """Keep the project identifiable first; long action detail yields room, not the project."""
     separator = " | "
-    action = action[: TITLE_LIMIT - len(separator) - 1]
-    available = TITLE_LIMIT - len(separator) - len(action)
-    if len(project) > available:
-        project = project[: max(available - 1, 0)] + "…"
-    return f"{project}{separator}{action}"[:TITLE_LIMIT]
+    budget = TITLE_LIMIT - len(separator)
+    project = ellipsize(project, max(budget - len(action), min(len(project), PROJECT_FLOOR)))
+    return f"{project}{separator}{ellipsize(action, budget - len(project))}"
 
 
 def markdown_value(value: str) -> str:
@@ -93,38 +145,48 @@ def truncate_utf8(value: str, byte_limit: int) -> str:
     return raw[:byte_limit].decode("utf-8", errors="ignore")
 
 
-def build_notification(payload: dict[str, Any]) -> tuple[str, str]:
+def event_detail(event: str, payload: dict[str, Any]) -> tuple[str, list[tuple[str, str]]]:
+    """Return the action suffix and the event-specific desp rows."""
+    if event == "PermissionRequest":
+        tool = tool_label(payload.get("tool_name"))
+        return tool, [("操作类型", tool)]
+    if event == "StopFailure":
+        reason = error_label(payload.get("error"))
+        return reason, [("失败原因", reason)]
+    if event == "Notification":
+        kind = payload.get("notification_type")
+        if kind != IDLE_NOTIFICATION_TYPE:
+            raise NotificationError(f"Unsupported notification type: {kind!r}")
+    return "", []
+
+
+def build_notification(agent: str, payload: dict[str, Any]) -> tuple[str, str]:
+    if agent not in AGENT_EVENTS:
+        raise NotificationError(f"Unsupported agent: {agent!r}")
     event = payload.get("hook_event_name")
+    if event not in AGENT_EVENTS[agent]:
+        raise NotificationError(f"Unsupported {agent} hook event: {event!r}")
+
     cwd_value = payload.get("cwd")
     cwd = cwd_value if isinstance(cwd_value, str) and cwd_value else os.getcwd()
     project = project_name(cwd)
+    short_name, long_name = AGENT_LABELS[agent]
+    suffix, extra_rows = event_detail(event, payload)
 
-    if event == "PermissionRequest":
-        tool = tool_label(payload.get("tool_name"))
-        action = f"等待确认:{tool}"
-        details = [
-            "## Codex 等待确认",
-            "",
-            f"- 项目: `{markdown_value(project)}`",
-            f"- 工作目录: `{markdown_value(cwd)}`",
-            f"- 操作类型: `{markdown_value(tool)}`",
-        ]
-    elif event in {"Stop", "SessionEnd"}:
-        action, heading = {
-            "Stop": ("输出完成", "Codex 输出完成"),
-            "SessionEnd": ("会话结束", "Codex 会话结束"),
-        }[event]
-        details = [
-            f"## {heading}",
-            "",
-            f"- 项目: `{markdown_value(project)}`",
-            f"- 工作目录: `{markdown_value(cwd)}`",
-        ]
-    else:
-        raise NotificationError(f"Unsupported hook event: {event!r}")
+    action = EVENT_ACTIONS[event]
+    if suffix:
+        action = f"{action}:{suffix}"
 
-    details.append(f"- 时间: `{datetime.now().astimezone().isoformat(timespec='seconds')}`")
-    return fit_title(project, action), truncate_utf8("\n".join(details), DESP_BYTE_LIMIT)
+    rows = [("项目", project), ("工作目录", cwd)]
+    rows.extend(extra_rows)
+    rows.append(("时间", datetime.now().astimezone().isoformat(timespec="seconds")))
+    details = [f"## {long_name} {EVENT_ACTIONS[event]}", ""]
+    details.extend(f"- {label}: `{markdown_value(value)}`" for label, value in rows)
+
+    return (
+        fit_title(project, f"{short_name} {action}"),
+        truncate_utf8("\n".join(details), DESP_BYTE_LIMIT),
+    )
 
 
 def send_notification(
@@ -139,7 +201,7 @@ def send_notification(
     endpoint = SERVERCHAN_ENDPOINT.format(sendkey=quote(sendkey, safe=""))
     request = Request(
         f"{endpoint}?{query}",
-        headers={"User-Agent": "codex-serverchan-notifier/0.1"},
+        headers={"User-Agent": "serverchan-notifier/0.3"},
         method="GET",
     )
 
@@ -183,6 +245,12 @@ def log_error(exc: BaseException) -> None:
         pass
 
 
+def parse_agent(argv: list[str]) -> str:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--agent", required=True, choices=sorted(AGENT_EVENTS))
+    return parser.parse_args(argv).agent
+
+
 def read_hook_payload() -> dict[str, Any]:
     payload = json.load(sys.stdin)
     if not isinstance(payload, dict):
@@ -190,19 +258,20 @@ def read_hook_payload() -> dict[str, Any]:
     return payload
 
 
-def main() -> int:
-    # Stop hooks require JSON output. An empty object leaves Codex behavior unchanged.
+def main(argv: list[str] | None = None) -> int:
+    # Stop hooks require JSON output. An empty object leaves the agent's decisions unchanged.
     print("{}")
     try:
+        agent = parse_agent(sys.argv[1:] if argv is None else argv)
         payload = read_hook_payload()
-        title, desp = build_notification(payload)
+        title, desp = build_notification(agent, payload)
         timeout = (
             SESSION_END_REQUEST_TIMEOUT
             if payload.get("hook_event_name") == "SessionEnd"
             else DEFAULT_REQUEST_TIMEOUT
         )
         send_notification(load_sendkey(), title, desp, timeout=timeout)
-    except (NotificationError, OSError, json.JSONDecodeError) as exc:
+    except (NotificationError, OSError, json.JSONDecodeError, SystemExit) as exc:
         log_error(exc)
     return 0
 

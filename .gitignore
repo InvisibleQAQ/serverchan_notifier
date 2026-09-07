@@ -3,7 +3,14 @@ __pycache__/
 .env
 serverchan-notifier.log
 
-.agents/
+# Codex reads the marketplace manifest from .agents/plugins/, so that one file is tracked
+# while the rest of .agents/ (local Trellis skills) stays ignored. The directory itself is
+# re-included first because a global ignore of .agents/ would stop git from descending.
+!.agents/
+.agents/*
+!.agents/plugins/
+.agents/plugins/*
+!.agents/plugins/marketplace.json
 .claude/
 .codex/
 .cursor/

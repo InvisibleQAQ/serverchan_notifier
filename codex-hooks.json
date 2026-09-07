@@ -6,8 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/scripts/serverchan_notifier.py\"",
-            "commandWindows": "python \"$env:PLUGIN_ROOT\\scripts\\serverchan_notifier.py\"",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/serverchan_notifier.py\" --agent codex",
+            "commandWindows": "python \"$env:PLUGIN_ROOT\\scripts\\serverchan_notifier.py\" --agent codex",
             "async": true,
             "timeout": 15
           }
@@ -19,8 +19,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/scripts/serverchan_notifier.py\"",
-            "commandWindows": "python \"$env:PLUGIN_ROOT\\scripts\\serverchan_notifier.py\"",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/serverchan_notifier.py\" --agent codex",
+            "commandWindows": "python \"$env:PLUGIN_ROOT\\scripts\\serverchan_notifier.py\" --agent codex",
             "async": true,
             "timeout": 15
           }
@@ -32,8 +32,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/scripts/serverchan_notifier.py\"",
-            "commandWindows": "python \"$env:PLUGIN_ROOT\\scripts\\serverchan_notifier.py\"",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/serverchan_notifier.py\" --agent codex",
+            "commandWindows": "python \"$env:PLUGIN_ROOT\\scripts\\serverchan_notifier.py\" --agent codex",
             "timeout": 3
           }
         ]

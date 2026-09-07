@@ -1,0 +1,14 @@
+{
+  "name": "serverchan-notifier-claude",
+  "version": "0.3.0",
+  "description": "Send ServerChan notifications for Claude Code turn, failure, approval, idle, and session lifecycle events.",
+  "author": {
+    "name": "Local developer"
+  },
+  "keywords": [
+    "claude-code",
+    "notifications",
+    "serverchan"
+  ],
+  "hooks": "./claude-hooks.json"
+}

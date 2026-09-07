@@ -1,6 +1,6 @@
 {
   "name": "serverchan-notifier",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Send ServerChan notifications for Codex turn, approval, and session lifecycle events.",
   "author": {
     "name": "Local developer"
@@ -10,6 +10,7 @@
     "notifications",
     "serverchan"
   ],
+  "hooks": "./codex-hooks.json",
   "interface": {
     "displayName": "ServerChan Notifier",
     "shortDescription": "ServerChan alerts for Codex lifecycle events.",
