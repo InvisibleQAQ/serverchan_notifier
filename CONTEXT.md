@@ -39,6 +39,12 @@ or `<agent> 会话结束` for session end.
 A label for one member of Claude Code's closed turn-failure enum, such as `触发限流` or `鉴权失败`.
 _Avoid_: raw error details, assistant output
 
+**Hook trust**:
+A Codex-side record that one hook definition is approved to run, identified by the notifying agent's
+plugin, the hook file it came from, and the event it binds. It is granted by the user, never by
+installing or enabling a plugin.
+_Avoid_: plugin enablement, marketplace trust
+
 **Notification configuration**:
 The user-owned `~/.codex/serverchan-notifier.env` file containing the ServerChan SendKey.
 _Avoid_: Plugin `.env`, cache configuration, per-agent configuration
@@ -74,9 +80,18 @@ _Avoid_: Plugin `.env`, cache configuration, per-agent configuration
 - The **Notifying agent** is declared explicitly by the hook command, never inferred from the environment.
 - No `hooks/hooks.json` may exist anywhere. Claude Code auto-loads that path inside a plugin root
   regardless of what the manifest declares, so each plugin names its own hook file in its manifest.
+  Codex reads the manifest-named file too, so nothing is lost by naming it.
+- **Hook trust** is granted per hook definition, not per plugin. An untrusted hook produces no
+  notification and no error, so a released change that renames a hook file or edits a hook command
+  stops notifications until the user re-approves — that cost belongs in the release notes.
+- A **Session-end notification** has to finish inside the 3-second ceiling Codex imposes on its
+  session-end hook. The request budget is what remains of that ceiling, not a round number, and
+  even the full budget makes session-end delivery best-effort rather than guaranteed.
 
 ## Flagged ambiguities
 
+- Codex reading the manifest's hook path was flagged unproven; resolved as supported, so the hook
+  file may stay named per agent.
 - `.env` previously meant a file inside the plugin installation; resolved as the user-owned **Notification configuration**.
 - `permission_required` / `input_required` / `run_completed` / `run_failed` are not hook event names in
   either agent; they are resolved to **Approval**, **Completion**, **Completion**, and **Failure notification**.

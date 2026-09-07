@@ -39,7 +39,14 @@ inside the root — a parent-relative path does not survive installation.
   bounded `error` enum but never `error_details` or `last_assistant_message`.
 - Keep ServerChan `title` at 32 characters or fewer and `desp` at 32 KiB or fewer. When the title runs
   out of room, truncate the operation detail before the project name.
-- Keep `SessionEnd` synchronous with a hook timeout no greater than 3 seconds in both hook files.
+- Keep `SessionEnd` synchronous with a hook timeout no greater than 3 seconds in both hook files —
+  Codex clamps it there anyway. The request timeout must consume what is left of that budget after
+  interpreter start (~0.1s). ServerChan measured ~2.5s for a rejected key and ~3.5s for a real send,
+  so a smaller budget loses every session-end notification silently and even a full one leaves
+  Codex session-end delivery best-effort. A test guards the gap.
+- Changing a hook file's name or any hook command invalidates Codex's trust records and stops
+  notifications until the user re-approves them in `/hooks`. Say so in the commit message and in
+  README's upgrade steps whenever either changes.
 - The notifying agent is passed explicitly as `--agent codex|claude`. Never infer it from environment
   variables: Codex also substitutes `CLAUDE_PLUGIN_ROOT`, so sniffing is unreliable.
 - Never create `hooks/hooks.json`. Claude Code auto-loads that path inside a plugin root regardless of
@@ -54,13 +61,20 @@ inside the root — a parent-relative path does not survive installation.
 - `.agents/` is ignored except for `.agents/plugins/marketplace.json`; the `.gitignore` re-includes the
   directory itself first because a global ignore of `.agents/` would stop git from descending.
 
-## Known unverified behaviour
+## Verified Codex hook behaviour
 
-`[UNKNOWN]` Codex reading `plugin.json#hooks`. Its binary carries the doc snippet
-`"hooks": "./hooks.json",` and the provenance label `plugin.json#hooks[`, and `codex plugin add`
-succeeds, but Codex parses no hook file at install time (even malformed JSON at the default path is
-silent), so the field cannot be proven without a trusted interactive session. If Codex turns out to
-ignore it, the failure is silent absence of notifications — not duplicates or errors — and the fallback
-is to give Codex its own plugin root with a copied script, kept honest by an identity test.
+Both established on codex-cli 0.153.4 with throwaway probe plugins and the app-server `hooks/list`
+RPC; the former `[UNKNOWN]` about `plugin.json#hooks` is resolved.
+
+- Codex loads the hook file named by `plugin.json#hooks`. A probe plugin carrying only
+  `"hooks": "./alt-hooks.json"` and no `hooks/hooks.json` was loaded with that file as its
+  `sourcePath`. The manifest-named file is therefore sound; the copied-script fallback is not needed.
+- Codex silently skips hooks it does not trust — no error, no prompt, no log line; notifications just
+  stop while the plugin still reports `installed, enabled`. Trust lives in `~/.codex/config.toml`
+  under `[hooks.state."<pluginId>:<hook file path>:<event>:<i>:<j>"]` as the sha256 of the hook
+  definition, so renaming the hook file or editing any command invalidates it. Verified in both
+  directions: an untrusted probe hook never ran; writing its `trusted_hash` made the same hook fire.
+- Codex clamps `SessionEnd` hook timeouts to 3s (`clamping SessionEnd hook timeout to 3s`). The 3s
+  ceiling in the invariants above is Codex's, not a preference.
 
 Update this file, `CONTEXT.md`, and `README.md` when behavior or file ownership changes.

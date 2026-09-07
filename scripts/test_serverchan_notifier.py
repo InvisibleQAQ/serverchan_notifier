@@ -262,6 +262,11 @@ class HookContractTests(unittest.TestCase):
                 self.assertNotIn("async", handler)
                 self.assertLessEqual(handler["timeout"], 3)
                 self.assertLess(notifier.SESSION_END_REQUEST_TIMEOUT, handler["timeout"])
+                # ServerChan needs seconds, so any budget left unspent is delivery thrown away.
+                # Only interpreter start may be reserved out of the hook budget.
+                self.assertGreaterEqual(
+                    notifier.SESSION_END_REQUEST_TIMEOUT, handler["timeout"] - 0.25
+                )
 
     def test_non_blocking_events_run_async(self):
         for agent in AGENTS:

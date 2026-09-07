@@ -87,8 +87,9 @@ Codex 插件只使用 `codex-hooks.json` 中的 lifecycle hooks，不使用旧�
 ### 6. 信任 Hook
 
 Codex：安装后关闭当前会话，启动新会话并运行 `/hooks`，审核并信任插件的三个 Hook。插件 Hook 属于
-非托管 Hook，安装或启用插件不会自动授予信任。Codex 会记录 Hook 定义哈希；升级到 Hook 配置发生
-变化的新版本后需要重新审核。
+非托管 Hook，安装或启用插件不会自动授予信任，**未信任等同于没装**——Codex 会静默跳过。Codex 按
+`<插件 ID>:<Hook 文件相对路径>:<事件>:<i>:<j>` 记录每条 Hook 的定义哈希；升级后只要 Hook 文件名或
+命令有任何改动，旧记录即失配，必须重新审核。
 
 Claude Code：安装插件时按提示确认插件 Hook，之后可用 `/hooks` 复核已生效的配置。
 
@@ -101,7 +102,8 @@ Claude Code：安装插件时按提示确认插件 Hook，之后可用 `/hooks` 
 
 - 插件是否为 `installed, enabled`。
 - `%USERPROFILE%\.codex\serverchan-notifier.env` 是否只定义了一次 `SERVERCHAN_SENDKEY`。
-- `/hooks` 中的 Hook 是否已信任。
+- `/hooks` 中的 Hook 是否已信任。**这是升级后通知消失的首要原因**：未信任的 Hook 被静默跳过，
+  插件仍显示 `installed, enabled`，日志里也不会留下任何痕迹。
 - 插件数据目录中的 `serverchan-notifier.log`；无法取得插件数据目录时，日志位于
   `%USERPROFILE%\.codex\serverchan-notifier.log`。
 
@@ -125,7 +127,12 @@ Claude Code：安装插件时按提示确认插件 Hook，之后可用 `/hooks` 
 - `SessionEnd` 表示会话关闭，不表示单轮输出完成。
 - 标题超过 32 字符时优先截断操作细节，保留项目名 —— 项目名才是推送列表里的有效标识。
 - 请求采用 GET，`title` 与 `desp` 使用 URL 编码。
-- 除 `SessionEnd` 外的事件异步执行；`SessionEnd` 同步执行，Hook 超时 3 秒，网络请求超时 2 秒。
+- 除 `SessionEnd` 外的事件异步执行；`SessionEnd` 同步执行，Hook 超时 3 秒，网络请求超时 2.8 秒。
+  3 秒不是可调参数：Codex 会把 `SessionEnd` 的 Hook 超时硬钳到 3 秒（超过时打印 `clamping SessionEnd
+  hook timeout to 3s`）。ServerChan 实测往返：错误 Key 被拒约 2.5 秒，真实发送约 3.5 秒；解释器启动
+  约 0.1 秒。因此请求超时必须吃满剩余预算——早期的 2 秒低于任何一种延迟，会让每一条会话结束通知都
+  静默超时。即便吃满，**Codex 下的会话结束通知仍是尽力而为**：真实发送耗时本就超过 3 秒的天花板。
+  `Stop` 与 `PermissionRequest` 不受影响，它们异步执行且有 15 秒预算。
 - 网络错误只写日志，不改变 agent 的审批、续跑或结束决策。脚本始终先输出 `{}` 并以 0 退出。
 - 为减少第三方数据暴露，通知不发送命令正文、工具参数或 AI 回复正文。`StopFailure` 只发送错误枚举，
   不发送 `error_details` 与 `last_assistant_message`。
@@ -142,12 +149,20 @@ Claude Code：安装插件时按提示确认插件 Hook，之后可用 `/hooks` 
 - Claude Code 不支持 `commandWindows`，Windows 下用 PowerShell 执行 `command`；
   `${CLAUDE_PLUGIN_ROOT}` 由 Claude Code 自己替换成绝对路径，不依赖 shell 展开。
 
-## 已知未验证项
+## Hook 加载与信任
 
-Codex 是否真的读取 `plugin.json` 的 `hooks` 字段，无法在不进入交互会话的前提下证明：Codex 在安装期
-不解析任何 hook 文件（连默认路径的坏 JSON 都不报错）。证据是其二进制中带有 `"hooks": "./hooks.json",`
-的文档片段和 `plugin.json#hooks[` 这个来源标签。若它实际忽略该字段，表现是 **Codex 收不到通知**
-（不会重复推送、也不会报错），按第 7 步就能测出来。
+两项行为已在 codex-cli 0.153.4 上实测确认。
+
+**Codex 读取 `plugin.json` 的 `hooks` 路径。** 一个只有 `"hooks": "./alt-hooks.json"`、没有
+`hooks/hooks.json` 的探针插件，其 Hook 被正常加载，`sourcePath` 就是清单指定的那个文件。所以
+`codex-hooks.json` 这个命名是有效的，不需要退回默认路径。
+
+**未信任的 Hook 会被 Codex 静默跳过。** 不报错、不提示、不写日志——表现就是通知凭空消失。信任记录
+存在 `%USERPROFILE%\.codex\config.toml` 的 `[hooks.state]` 下，键是
+`<插件 ID>:<Hook 文件相对路径>:<事件>:<i>:<j>`，值是该 Hook 定义的 sha256。**Hook 文件改名或命令改动
+都会让旧记录失配**，等同于回到未信任状态，必须重新审核（第 6 步）。0.3.0 同时改了文件名
+（`hooks/hooks.json` → `codex-hooks.json`）和命令（新增 `--agent codex`），因此从 0.2.x 升级后
+三条 Hook 全部需要重新信任。
 
 ## 开发验证
 

@@ -23,7 +23,11 @@ ENV_KEY = "SERVERCHAN_SENDKEY"
 DEFAULT_ENV_PATH = Path.home() / ".codex" / "serverchan-notifier.env"
 SERVERCHAN_ENDPOINT = "https://sctapi.ftqq.com/{sendkey}.send"
 DEFAULT_REQUEST_TIMEOUT = 10.0
-SESSION_END_REQUEST_TIMEOUT = 2.0
+# Codex clamps SessionEnd hooks to 3s, so the whole run — interpreter start (~0.1s) plus the
+# request — has to fit there; the request therefore gets the rest of that budget. Measured
+# ServerChan latency is ~2.5s for a rejected key and ~3.5s for a real send, so session-end
+# delivery stays best-effort under Codex. Stop and PermissionRequest are async with 15s.
+SESSION_END_REQUEST_TIMEOUT = 2.8
 
 # Each agent exposes a different lifecycle surface. Codex has no turn-failure event.
 AGENT_LABELS = {"codex": ("Codex", "Codex"), "claude": ("Claude", "Claude Code")}
